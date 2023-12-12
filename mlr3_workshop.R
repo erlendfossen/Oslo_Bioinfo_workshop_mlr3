@@ -15,12 +15,22 @@ task$censtype #right censored
 task$status() # use $ to get info. 1 is death, 0 censored (or alive)
 task$nrow
 task$ncol
+task$unique_times()
+task$target_names # this is for survival, if it was classification it would only be one target (e.g. health/sick)
+task$truth() # + for event
 
+task=tsk("grace")
+task=tsk("whas")
+mlr_tasks  #all available tasks
 
-
-mlr_tasks
+# which task avaialbe for survival
 as.data.table(mlr_tasks)[task_type == 'surv'] # tasks to "play"
 
+autoplot(task) # kaplain meier plot
+task$kaplan() #survfit object
+plot(task$kaplan()) # kaplan meier with CI
+
+# make dataset into a task ----
 ?as_task_surv
 data = survival::rats
 data$sex = factor(data$sex, levels = c("f", "m"))
@@ -37,7 +47,54 @@ lung = lung %>% select(-inst) # remove Institution code (irrelevant for us)
 lung$ph.ecog = as.integer(lung$ph.ecog)
 
 task = as_task_surv(x = lung, time = 'time', event = 'status', id = 'lung')
+## Note: sex here is as double, need to convert to factor
 task$missings() # missing values!
 task$truth()
 task$status()
 task$times()
+
+
+# other code ----
+# Preprocessing pipeline!
+?mlr_pipeops
+
+# Encode factors
+poe = po("encode", method = "treatment")
+
+# Model-based missing data imputation
+?mlr_pipeops_imputelearner
+po_imp = po("imputelearner", learner = lrn('regr.rpart'))
+task
+
+
+# Learners - CoxPH, KM
+# how to get info about a model? help()
+
+cox = lrn("surv.coxph")
+km = lrn("surv.km")
+surv_tree = lrn("surv.rpart")
+
+# Train + test split
+part = partition(task)
+
+# CoxPH
+
+# KM
+
+# Prediction types
+# distr, crank, lp, response
+
+# Evaluate performance
+mlr_measures$keys(pattern = "surv")
+
+# measures
+mlr_measures$keys(pattern = "surv")
+
+# discrimination
+m = msr("surv.cindex") # harrell's c-index
+
+# calibration
+m = msr("surv.dcalib")
+
+# putting it all together to a resample/benchmark
+
