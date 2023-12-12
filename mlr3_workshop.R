@@ -59,7 +59,30 @@ task$times()
 ?mlr_pipeops
 
 # Encode factors
-poe = po("encode", method = "treatment")
+task=tsk("lung")
+task # want sex as factor
+po("encode") #pipe operator
+poe <- po("encode")
+poe$input
+poe$output
+poe$help() # see methods
+poe = po("encode", method = "one-hot")
+
+poe$train(input = list(task))
+t2 = poe$train(input = list(task))[[1]] 
+
+poe2 = po("encode", method = "treatment") # treatment best if only 2 levels
+
+poe2$train(input = list(task))
+t3 = poe2$train(input = list(task))[[1]] 
+t3$data(cols = "sex")
+t2$data(cols = "sex")
+task$data(cols = "sex")
+# want ideally to have factors with 2 levels as 0 and 1 since all packages/models can handle this, but not all handle factors
+# here originally m/f, now made into 0/1 with treatment, and made 2 variables in one-hot encoding
+# one-hot can be useful if you want all levels as separate variables
+
+
 
 # Model-based missing data imputation
 ?mlr_pipeops_imputelearner
