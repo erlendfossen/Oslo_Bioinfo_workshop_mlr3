@@ -2,7 +2,7 @@ library(mlr3verse)
 library(mlr3proba)
 library(mlr3extralearners)
 library(tidyverse)
-library(skimr)
+#library(skimr)
 
 # Survival Tasks
 task=tsk("lung") # use lung dataset
@@ -65,10 +65,11 @@ po("encode") #pipe operator
 poe <- po("encode")
 poe$input
 poe$output
+poe$param_set # one-hot default
 poe$help() # see methods
 poe = po("encode", method = "one-hot")
 
-poe$train(input = list(task))
+poe$train(input = list(task)) # make list since can do this for many tasks/datasets
 t2 = poe$train(input = list(task))[[1]] 
 
 poe2 = po("encode", method = "treatment") # treatment best if only 2 levels
@@ -80,21 +81,61 @@ t2$data(cols = "sex")
 task$data(cols = "sex")
 # want ideally to have factors with 2 levels as 0 and 1 since all packages/models can handle this, but not all handle factors
 # here originally m/f, now made into 0/1 with treatment, and made 2 variables in one-hot encoding
-# one-hot can be useful if you want all levels as separate variables
+# one-hot can be useful if you want all levels as separate variables. With treatment, the baseline factor is important
 
 
 
-# Model-based missing data imputation
+# Model-based missing data imputation ----
+mlr_pipeops #many different pipes
 ?mlr_pipeops_imputelearner
+task <- t3
+task$missings()
+
+poimpmean <- po("imputemean")
+poimpmean$param_set # affect colums is the columns you want to do the missing on etc
+
+taskimp <- poimpmean$train(input = list(task))[[1]]
+taskimp$missings()
+
 po_imp = po("imputelearner", learner = lrn('regr.rpart'))
-task
+learner <- lrn("regr.rpart") #regression tree, from rpart package
+learner$param_set
+learner 
 
+po_imp2 = po("imputelearner", learner = learner)
+po_imp2$param_set
+taskimp2 <- po_imp2$train(input = list(task))[[1]]
+taskimp2$missings()
 
-# Learners - CoxPH, KM
+# could use random forest 
+lrn("regr.ranger") #note that it does NOT support missing values. If it did, it would be under properties
+
+poi_ranger = po("imputelearner", 
+                learner = po("imputemean") %>>% lrn("regr.ranger"))
+## here it first imputes on mean and uses this to impute the values again
+## %>>% is specific for the mlr3 pipeline
+?'%>>%'
+poi_ranger
+taskimp3 <- poi_ranger$train(input = list(task))[[1]]
+taskimp3
+taskimp3$data(cols="wt.loss")[[1]]
+task$data(cols="wt.loss")[[1]]
+
+# OBS: if missing survival time, cannot impute! Remove subject or look at unsupervised clustering based on only features
+
+# Learners - CoxPH, KM ----
+
+task <- taskimp3
+
 # how to get info about a model? help()
 
 cox = lrn("surv.coxph")
-km = lrn("surv.km")
+cox #object etc
+cox$help()
+
+
+
+km = lrn("surv.kaplan")
 surv_tree = lrn("surv.rpart")
 
 # Train + test split
