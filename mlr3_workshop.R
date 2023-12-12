@@ -82,6 +82,7 @@ task$data(cols = "sex")
 # want ideally to have factors with 2 levels as 0 and 1 since all packages/models can handle this, but not all handle factors
 # here originally m/f, now made into 0/1 with treatment, and made 2 variables in one-hot encoding
 # one-hot can be useful if you want all levels as separate variables. With treatment, the baseline factor is important
+## OBS: one-hot is not possible if binary since one variable is exactly redundant to the other one (just flipped 0 and 1s) 
 
 
 
@@ -126,6 +127,7 @@ task$data(cols="wt.loss")[[1]]
 # Learners - CoxPH, KM ----
 
 task <- taskimp3
+skimr::skim(survival::lung) # good way to get idea of the data
 
 # how to get info about a model? help()
 
@@ -133,15 +135,41 @@ cox = lrn("surv.coxph")
 cox #object etc
 cox$help()
 
-
-
 km = lrn("surv.kaplan")
 surv_tree = lrn("surv.rpart")
 
 # Train + test split
-part = partition(task)
+part = partition(task, ratio = 0.8) # will by default be stratified
+## Stratification for ML: stratified by target, here based on status.
+## can stratify on other values if you want
+task_strata = task$col_roles$stratum = "sex" #make sex a stratum
+part0 <- mlr3::partition(task=task_strata)  # code did not work, but get an idea and can check myself later
+
+### Can be a problem if you end up with a different proportion of patients that were censored in train vs test
+table(task$status()) # censored and dead
+prop.table(table(task$status())) # proportion, 28% censored
+
+prop.table(table(task$status(rows=part$train))) # proportion, 27% censored
+prop.table(table(task$status(rows=part$test))) # proportion, 28% censored
+## similar proportions due to stratification
+
+part$train # which subjects are used for training
+task$missings()
 
 # CoxPH
+cox$model # empty
+cox$train(task, row_ids = part$train)
+cox$model # gives the cox model!
+summary((cox$model)) # summary as normal etc
+## here using all covariates, may want to use fewer, probably possible to specify
+task$formula() # ~ . ## i.e. all covariates
+
+cox$reset() # removes model
+cox$train(task) #testing for all patients, not only for train
+cox$model # gives the cox model
+summary((cox$model))
+
+cox$reset()
 
 # KM
 
